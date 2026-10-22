@@ -43,9 +43,9 @@ develop-eggs/
 dist/
 downloads/
 eggs/
-.eggs/
-lib/
-lib64/
+# Python virtual env lib folders (keep frontend/src/lib tracked)
+!frontend/src/lib/
+!frontend/src/lib/**
 parts/
 sdist/
 var/

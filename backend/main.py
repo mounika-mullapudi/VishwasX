@@ -20,7 +20,14 @@ from fastapi.responses import JSONResponse
 import logging
 
 # Append ml-services to path so we can import analyzer
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ml-services', 'AI-Resume')))
+for path_candidate in [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ml-services', 'AI-Resume')),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), 'ml-services', 'AI-Resume')),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), 'AI-Resume')),
+]:
+    if os.path.exists(path_candidate) and path_candidate not in sys.path:
+        sys.path.append(path_candidate)
+
 try:
     import analyzer
 except ImportError as e:

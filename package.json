@@ -4,9 +4,12 @@
   "version": "1.0.0",
   "scripts": {
     "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
     "build:frontend": "npm --prefix frontend run build",
     "install:frontend": "npm --prefix frontend install",
-    "lint:frontend": "npm --prefix frontend run lint"
+    "lint:frontend": "npm --prefix frontend run lint",
+    "preview": "npm --prefix frontend run preview",
+    "start": "npm --prefix frontend run preview"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
