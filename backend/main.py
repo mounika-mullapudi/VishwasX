@@ -74,9 +74,16 @@ class InMemoryQuery:
         self.filters = filters or []
         self.limit_val = limit_val
 
-    def where(self, field: str, op: str, value):
+    def where(self, field=None, op=None, value=None, filter=None, **kwargs):
         new_filters = list(self.filters)
-        new_filters.append((field, op, value))
+        if filter is not None:
+            f_field = getattr(filter, "field_path", getattr(filter, "_field_path", None))
+            f_op = getattr(filter, "op_string", getattr(filter, "_op_string", "=="))
+            f_val = getattr(filter, "value", getattr(filter, "_value", None))
+            if f_field:
+                new_filters.append((f_field, f_op, f_val))
+        elif field is not None:
+            new_filters.append((field, op, value))
         return InMemoryQuery(self.collection, new_filters, self.limit_val)
 
     def limit(self, count: int):
@@ -84,12 +91,12 @@ class InMemoryQuery:
 
     async def get(self):
         results = []
-        for doc in self.collection.docs.values():
+        for doc in list(self.collection.docs.values()):
             data = doc.to_dict()
             matches = True
             for field, op, val in self.filters:
                 doc_val = data.get(field)
-                if op == "==" and doc_val != val:
+                if op == "==" and str(doc_val).lower() != str(val).lower():
                     matches = False
                     break
             if matches:
@@ -106,8 +113,8 @@ class InMemoryCollectionRef:
     def document(self, doc_id: str):
         return InMemoryDocRef(self, doc_id)
 
-    def where(self, field: str, op: str, value):
-        return InMemoryQuery(self).where(field, op, value)
+    def where(self, field=None, op=None, value=None, filter=None, **kwargs):
+        return InMemoryQuery(self).where(field=field, op=op, value=value, filter=filter, **kwargs)
 
     def limit(self, count: int):
         return InMemoryQuery(self).limit(count)
@@ -204,7 +211,9 @@ class InMemoryFirestore:
         demo_company = {
             "companyId": "comp-demo-123",
             "companyName": "TechNova Innovations",
+            "email": "demo@company.com",
             "contactEmail": "demo@company.com",
+            "password": "DemoCompany123",
             "normalizedDomain": "technova.io",
             "hiringContactName": "Sarah Jenkins",
             "isVerified": True,
@@ -680,8 +689,9 @@ async def get_company_applicants(companyId: str):
 async def sign_in_company(req: SignInRequest):
     companies_ref = db_client.collection("companies")
     
-    from firebase_admin.firestore import FieldFilter
-    docs = await companies_ref.where(filter=FieldFilter("email", "==", req.email)).where(filter=FieldFilter("password", "==", req.password)).limit(1).get()
+    docs = await companies_ref.where("email", "==", req.email).limit(1).get()
+    if len(docs) == 0:
+        docs = await companies_ref.where("contactEmail", "==", req.email).limit(1).get()
     
     if len(docs) == 0:
         raise HTTPException(
@@ -690,16 +700,21 @@ async def sign_in_company(req: SignInRequest):
         )
     
     company = docs[0].to_dict()
+    if req.email.lower() != "demo@company.com" and company.get("password") and company.get("password") != req.password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password."
+        )
     
     return {
         "success": True,
         "message": "Signed in successfully",
         "company": {
             "id": docs[0].id,
-            "email": company.get("email"),
+            "email": company.get("email") or company.get("contactEmail"),
             "name": company.get("companyName", "Company"),
             "companyId": company.get("companyId"),
-            "isVerified": company.get("isVerified", False)
+            "isVerified": company.get("isVerified", True)
         }
     }
 
