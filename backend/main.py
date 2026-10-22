@@ -38,6 +38,179 @@ load_dotenv()
 
 PORT = int(os.getenv("PORT", 4000))
 
+# Fallback in-memory database to keep all API routes fully functional when Firebase credentials are not provided
+class InMemoryDoc:
+    def __init__(self, doc_id: str, data: dict):
+        self.id = doc_id
+        self._data = dict(data)
+        self.exists = True
+
+    def to_dict(self):
+        return dict(self._data)
+
+class InMemoryDocRef:
+    def __init__(self, collection, doc_id: str):
+        self.collection = collection
+        self.id = doc_id
+
+    async def get(self):
+        doc = self.collection.docs.get(self.id)
+        if doc is None:
+            non_existent = InMemoryDoc(self.id, {})
+            non_existent.exists = False
+            return non_existent
+        return doc
+
+    async def update(self, data: dict):
+        if self.id in self.collection.docs:
+            self.collection.docs[self.id]._data.update(data)
+
+    async def delete(self):
+        self.collection.docs.pop(self.id, None)
+
+class InMemoryQuery:
+    def __init__(self, collection, filters=None, limit_val=None):
+        self.collection = collection
+        self.filters = filters or []
+        self.limit_val = limit_val
+
+    def where(self, field: str, op: str, value):
+        new_filters = list(self.filters)
+        new_filters.append((field, op, value))
+        return InMemoryQuery(self.collection, new_filters, self.limit_val)
+
+    def limit(self, count: int):
+        return InMemoryQuery(self.collection, self.filters, count)
+
+    async def get(self):
+        results = []
+        for doc in self.collection.docs.values():
+            data = doc.to_dict()
+            matches = True
+            for field, op, val in self.filters:
+                doc_val = data.get(field)
+                if op == "==" and doc_val != val:
+                    matches = False
+                    break
+            if matches:
+                results.append(doc)
+                if self.limit_val and len(results) >= self.limit_val:
+                    break
+        return results
+
+class InMemoryCollectionRef:
+    def __init__(self, name: str):
+        self.name = name
+        self.docs = {}
+
+    def document(self, doc_id: str):
+        return InMemoryDocRef(self, doc_id)
+
+    def where(self, field: str, op: str, value):
+        return InMemoryQuery(self).where(field, op, value)
+
+    def limit(self, count: int):
+        return InMemoryQuery(self).limit(count)
+
+    async def get(self):
+        return list(self.docs.values())
+
+    async def add(self, data: dict):
+        doc_id = data.get("id") or str(uuid.uuid4())
+        doc = InMemoryDoc(doc_id, data)
+        self.docs[doc_id] = doc
+        return (datetime.now(timezone.utc), InMemoryDocRef(self, doc_id))
+
+class InMemoryFirestore:
+    def __init__(self):
+        self.collections = {}
+        self._seed_default_data()
+
+    def collection(self, name: str):
+        if name not in self.collections:
+            self.collections[name] = InMemoryCollectionRef(name)
+        return self.collections[name]
+
+    def _seed_default_data(self):
+        jobs = self.collection("jobs")
+        sample_jobs = [
+            {
+                "id": "job-1",
+                "jobId": "job-1",
+                "title": "Senior Full Stack Returnship",
+                "companyName": "Google Cloud",
+                "companyId": "comp-demo-123",
+                "type": "Returnship",
+                "description": "Designed for women restarting careers after a break of 1+ years. Build cloud-native web applications with mentor pairing.",
+                "requiredSkills": ["React", "TypeScript", "Node.js", "Cloud Architecture"],
+                "skills": ["React", "TypeScript", "Node.js", "Cloud Architecture"],
+                "isVerifiedCompany": True,
+                "location": "Bengaluru (Hybrid)",
+                "salary": "₹28,00,000 - ₹35,00,000",
+                "createdAt": datetime.now(timezone.utc)
+            },
+            {
+                "id": "job-2",
+                "jobId": "job-2",
+                "title": "Frontend Software Engineer",
+                "companyName": "Microsoft India",
+                "companyId": "comp-demo-123",
+                "type": "Full-time",
+                "description": "Join the Teams platform experience engineering group. Flexible work hours and transition support program.",
+                "requiredSkills": ["React", "JavaScript", "HTML", "CSS", "Next.js"],
+                "skills": ["React", "JavaScript", "HTML", "CSS", "Next.js"],
+                "isVerifiedCompany": True,
+                "location": "Hyderabad / Remote",
+                "salary": "₹24,00,000 - ₹30,00,000",
+                "createdAt": datetime.now(timezone.utc)
+            },
+            {
+                "id": "job-3",
+                "jobId": "job-3",
+                "title": "AI / ML Solutions Returner",
+                "companyName": "Amazon Web Services",
+                "companyId": "comp-demo-123",
+                "type": "Full-time",
+                "description": "Work with GenAI and NLP pipelines. Career comeback supportive team with dedicated buddy system.",
+                "requiredSkills": ["Python", "Machine Learning", "FastAPI", "SQL"],
+                "skills": ["Python", "Machine Learning", "FastAPI", "SQL"],
+                "isVerifiedCompany": True,
+                "location": "Pune / Remote",
+                "salary": "₹26,00,000 - ₹32,00,000",
+                "createdAt": datetime.now(timezone.utc)
+            }
+        ]
+        for j in sample_jobs:
+            jobs.docs[j["id"]] = InMemoryDoc(j["id"], j)
+
+        users = self.collection("users")
+        demo_user = {
+            "id": "user-demo-123",
+            "email": "demo@example.com",
+            "name": "Priya Sharma (Demo)",
+            "phone": "+91 9876543210",
+            "firebaseUID": "demo-uid-123",
+            "careerStage": "Career Restart",
+            "previousRole": "Frontend Developer",
+            "yearsExperience": 4,
+            "careerBreakDuration": "2 years",
+            "currentSkills": ["React", "JavaScript", "HTML", "CSS", "TypeScript"],
+            "desiredRole": "Senior Full Stack Engineer",
+            "educationLevel": "Bachelor's Degree",
+        }
+        users.docs[demo_user["id"]] = InMemoryDoc(demo_user["id"], demo_user)
+
+        companies = self.collection("companies")
+        demo_company = {
+            "companyId": "comp-demo-123",
+            "companyName": "TechNova Innovations",
+            "contactEmail": "demo@company.com",
+            "normalizedDomain": "technova.io",
+            "hiringContactName": "Sarah Jenkins",
+            "isVerified": True,
+        }
+        companies.docs[demo_company["companyId"]] = InMemoryDoc(demo_company["companyId"], demo_company)
+
 # Global db client
 db_client = None
 
@@ -46,18 +219,33 @@ async def lifespan(app: FastAPI):
     global db_client
     print("Connecting to Firebase Workspace...")
     try:
+        import json
+        cred_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
         cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase-credentials.json")
-        if os.path.exists(cred_path):
+        if cred_json:
+            cred_dict = json.loads(cred_json)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("Connected to Firebase using FIREBASE_CREDENTIALS_JSON.")
+            db_client = firestore_async.client()
+        elif os.path.exists(cred_path):
             cred = credentials.Certificate(cred_path)
             firebase_admin.initialize_app(cred)
             print("Connected to Firebase using credentials file.")
+            db_client = firestore_async.client()
         else:
-            firebase_admin.initialize_app()
-            print("Connected to Firebase using default credentials.")
-        
-        db_client = firestore_async.client()
+            try:
+                firebase_admin.initialize_app()
+                db_client = firestore_async.client()
+                print("Connected to Firebase using default credentials.")
+            except Exception as e:
+                print(f"Default Firebase credentials not available: {e}")
+                print("Operating with InMemoryFirestore store (all endpoints fully operational).")
+                db_client = InMemoryFirestore()
     except Exception as e:
         print(f"Failed to connect to Firebase: {e}")
+        print("Falling back to InMemoryFirestore store.")
+        db_client = InMemoryFirestore()
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -75,6 +263,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+@app.head("/")
+async def root():
+    is_real_db = db_client is not None and not isinstance(db_client, InMemoryFirestore)
+    return {
+        "status": "online",
+        "service": "VishwasX Backend API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "database": "firestore" if is_real_db else "in-memory (fallback)"
+    }
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
