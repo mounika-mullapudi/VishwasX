@@ -8,10 +8,18 @@ const request = async <T = any>(endpoint: string, options: RequestInit = {}): Pr
     ...(options.headers || {}),
   };
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (err: any) {
+    if (err?.message?.includes("Failed to fetch") || err?.name === "TypeError") {
+      throw new Error(`Unable to connect to backend at ${API_BASE_URL}. Ensure the backend service is running and CORS is configured.`);
+    }
+    throw err;
+  }
 
   if (!response.ok) {
     let errorDetail = `Request failed with status ${response.status}`;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { disableGuestMode } from "@/lib/guestMode";
 import { GirlIllustration2, GirlIllustration3 } from "@/components/BackgroundIllustrations";
@@ -39,6 +39,27 @@ const CompanySignIn = () => {
 
     if (!validateForm()) return;
 
+    if (
+      formData.email.trim().toLowerCase() === "demo@company.com" ||
+      formData.email.trim().toLowerCase() === "demo@example.com"
+    ) {
+      setLoading(true);
+      const demoCompany = {
+        companyId: "comp-demo-123",
+        companyName: "TechNova Innovations",
+        contactEmail: formData.email.trim(),
+        normalizedDomain: "technova.io",
+        hiringContactName: "Sarah Jenkins (Demo)",
+        isVerified: true,
+      };
+      signInCompany(demoCompany);
+      setSuccessMessage("Signed in as Demo Company! Redirecting...");
+      setTimeout(() => {
+        navigate("/company/dashboard");
+      }, 800);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/company/signin`, {
@@ -62,8 +83,14 @@ const CompanySignIn = () => {
       } else {
         setErrors({ submit: result.detail || result.message || "Invalid credentials" });
       }
-    } catch (error) {
-      setErrors({ submit: "An error occurred. Please try again." });
+    } catch (error: any) {
+      if (error?.message?.includes("Failed to fetch") || error?.name === "TypeError") {
+        setErrors({
+          submit: `Backend server at ${API_BASE_URL} is unreachable. Ensure the backend is deployed and running, or click Demo Company below.`
+        });
+      } else {
+        setErrors({ submit: "An error occurred. Please try again." });
+      }
     } finally {
       setLoading(false);
     }
@@ -185,9 +212,29 @@ const CompanySignIn = () => {
 
           {/* Error Message */}
           {errors.submit && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-              <p className="text-sm text-destructive">{errors.submit}</p>
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive">{errors.submit}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const demoCompany = {
+                    companyId: "comp-demo-123",
+                    companyName: "TechNova Innovations",
+                    contactEmail: "demo@company.com",
+                    normalizedDomain: "technova.io",
+                    hiringContactName: "Sarah Jenkins (Demo)",
+                    isVerified: true,
+                  };
+                  signInCompany(demoCompany);
+                  navigate("/company/dashboard");
+                }}
+                className="w-full text-xs font-semibold py-1.5 px-3 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              >
+                ⚡ Continue as Demo Company instead
+              </button>
             </div>
           )}
 
@@ -206,6 +253,36 @@ const CompanySignIn = () => {
             className="w-full rounded-lg gradient-primary px-4 py-2.5 text-base font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-lg"
           >
             {loading ? "Signing In..." : "Sign In as Company"}
+          </button>
+
+          {/* One-Click Demo Company Button */}
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border/50" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">or test without backend</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const demoCompany = {
+                companyId: "comp-demo-123",
+                companyName: "TechNova Innovations",
+                contactEmail: "demo@company.com",
+                normalizedDomain: "technova.io",
+                hiringContactName: "Sarah Jenkins (Demo)",
+                isVerified: true,
+              };
+              signInCompany(demoCompany);
+              navigate("/company/dashboard");
+            }}
+            className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-all"
+          >
+            <Sparkles className="h-4 w-4" />
+            Explore Demo Company Dashboard
           </button>
         </form>
 

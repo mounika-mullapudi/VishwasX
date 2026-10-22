@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase";
-import { disableGuestMode } from "@/lib/guestMode";
+import { disableGuestMode, enableGuestMode } from "@/lib/guestMode";
 import { API_BASE_URL } from "@/lib/apiService";
 
 const SignIn = () => {
@@ -18,6 +18,14 @@ const SignIn = () => {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+
+  const handleDemoSignIn = () => {
+    enableGuestMode();
+    setSuccessMessage("Logged in with Demo Profile! Redirecting...");
+    setTimeout(() => {
+      navigate("/dashboard");
+    }, 800);
+  };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -38,6 +46,17 @@ const SignIn = () => {
     e.preventDefault();
 
     if (!validateForm()) return;
+
+    // Instant support for documented demo credentials
+    if (formData.email.trim().toLowerCase() === "demo@example.com") {
+      setLoading(true);
+      enableGuestMode();
+      setSuccessMessage("Signed in with Demo Credentials! Redirecting...");
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 800);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -104,6 +123,10 @@ const SignIn = () => {
         setErrors({ submit: "Incorrect email or password." });
       } else if (error?.code === "auth/user-not-found") {
         setErrors({ submit: "No account found with this email. Please create one first." });
+      } else if (error?.message?.includes("Failed to fetch") || error?.name === "TypeError") {
+        setErrors({
+          submit: `Backend server at ${API_BASE_URL} is unreachable. If deployed, please configure VITE_API_BASE_URL in your hosting settings, or try Demo Mode.`
+        });
       } else {
         setErrors({ submit: error?.message || "An error occurred. Please try again." });
       }
@@ -209,9 +232,18 @@ const SignIn = () => {
 
           {/* Error Message */}
           {errors.submit && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-              <p className="text-sm text-destructive">{errors.submit}</p>
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive">{errors.submit}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleDemoSignIn}
+                className="w-full text-xs font-semibold py-1.5 px-3 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              >
+                ⚡ Continue with Demo Mode instead
+              </button>
             </div>
           )}
 
@@ -230,6 +262,25 @@ const SignIn = () => {
             className="w-full rounded-lg gradient-primary px-4 py-2.5 text-base font-semibold text-primary-foreground transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-lg"
           >
             {loading ? "Signing In..." : "Sign In"}
+          </button>
+
+          {/* One-Click Demo Button */}
+          <div className="relative my-2">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border/50" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">or test without backend</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDemoSignIn}
+            className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-all"
+          >
+            <Sparkles className="h-4 w-4" />
+            Explore with Demo Profile
           </button>
         </form>
 

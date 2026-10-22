@@ -119,6 +119,10 @@ const SignUp = () => {
       console.error("Signup error:", err);
       if (err.code === 'auth/email-already-in-use') {
         setErrors({ submit: "This email is already registered! Please go to the Sign In page." });
+      } else if (err?.message?.includes("Failed to fetch") || err?.name === "TypeError") {
+        setErrors({
+          submit: `Backend server at ${API_BASE_URL} is unreachable. Ensure your backend service is running, or visit the Sign In page to try Demo Mode.`
+        });
       } else {
         setErrors({ submit: err.message || "Unable to continue signup. Please try again." });
       }
