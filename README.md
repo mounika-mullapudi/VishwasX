@@ -231,11 +231,6 @@ For support, email support@careerrebootai.com or open an issue on GitHub.
 - Animations with Framer Motion
 
 ---
-## 🚀 Live Deployment
-
-- **Live Website:** [Open VishwasX](https://vishwas-x-o3kl.vercel.app/)
-- **Backend API:** [Open Backend](https://vishwasx-backend-894r.onrender.com)
-- **API Documentation:** [Open API Docs](https://vishwasx-backend-894r.onrender.com/docs)
 
 ## 💻 Source Code
 
